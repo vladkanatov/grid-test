@@ -23,7 +23,7 @@ cd grid-test
     
 2.  Start the Selenium Grid:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 3.  Make request at [http://localhost:8000/browse](http://localhost:8000/browse)
