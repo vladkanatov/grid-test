@@ -1,0 +1,67 @@
+version: "3.9"
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  selenium-hub:
+    image: selenium/hub:4.26
+    container_name: selenium-hub
+    ports:
+      - "4444:4444"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://selenium-hub:4444/status"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    environment:
+      - JAVA_OPTS=-Dotel.traces.exporter=none
+      - JAVA_OPTS=-Dselenium.opentelemetry.enabled=false
+
+  chrome:
+    image: selenium/node-chrome:4.26
+    depends_on:
+      - selenium-hub
+    environment:
+      - JAVA_OPTS=-Dotel.traces.exporter=none
+      - JAVA_OPTS=-Dselenium.opentelemetry.enabled=false
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.app
+    container_name: fastapi-service
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://fastapi-service:8000"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  consumer:
+    build:
+      context: .
+      dockerfile: consumer/Dockerfile.consumer
+    container_name: consumer-service
+    depends_on:
+      - rabbitmq
+      - selenium-hub
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep python || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
